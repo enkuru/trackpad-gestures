@@ -1,3 +1,5 @@
+import Foundation
+
 public struct TouchPoint: Equatable, Sendable {
     public let id: Int
     /// 0 is the trackpad's left edge, 1 its right edge.
@@ -14,6 +16,10 @@ public struct TouchPoint: Equatable, Sendable {
     func distance(to other: TouchPoint) -> Double {
         ((x - other.x) * (x - other.x) + (y - other.y) * (y - other.y)).squareRoot()
     }
+
+    func millimetres(to other: TouchPoint, on trackpad: CGSize) -> Double {
+        hypot((x - other.x) * trackpad.width, (y - other.y) * trackpad.height)
+    }
 }
 
 public enum Gesture: Equatable, Sendable {
@@ -27,10 +33,12 @@ public enum Gesture: Equatable, Sendable {
     case tipTapMiddle
 }
 
-/// Distances are in trackpad widths/heights, durations in seconds.
+/// Distances are in trackpad widths/heights unless named in millimetres, durations in seconds.
 public struct GestureTuning: Sendable {
     public var tapMaxDuration = 0.25
     public var tapMaxTravel = 0.05
+    /// How far from each resting finger the tap may land, so a tap out near the edge doesn't change the volume.
+    public var tapMaxReachMillimetres = 40.0
     /// Resting fingers must land this long before the tap, which keeps plain two- and three-finger taps out.
     public var restMinLead = 0.12
     public var restMaxTravel = 0.06
@@ -59,13 +67,16 @@ public struct GestureRecognizer: Sendable {
         let travel: Double
     }
 
+    /// In millimetres.
+    private let trackpadSize: CGSize
     private let tuning: GestureTuning
     private var contacts: [Int: Contact] = [:]
     private var lifts: [Lift] = []
     private var peakContacts = 0
     private var recognizedTipTap = false
 
-    public init(tuning: GestureTuning = GestureTuning()) {
+    public init(trackpadSize: CGSize, tuning: GestureTuning = GestureTuning()) {
+        self.trackpadSize = trackpadSize
         self.tuning = tuning
     }
 
@@ -116,7 +127,8 @@ public struct GestureRecognizer: Sendable {
         for (restingId, finger) in resting {
             guard let positionAtTap = tap.othersAtStart[restingId],
                   tap.start - finger.start >= tuning.restMinLead,
-                  finger.position.distance(to: positionAtTap) <= tuning.restMaxTravel
+                  finger.position.distance(to: positionAtTap) <= tuning.restMaxTravel,
+                  tap.origin.millimetres(to: positionAtTap, on: trackpadSize) <= tuning.tapMaxReachMillimetres
             else { return nil }
         }
 

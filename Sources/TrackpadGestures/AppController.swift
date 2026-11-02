@@ -7,6 +7,11 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let trackpads = Trackpads()
     private let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
     private var isPaused = false
+    /// System uptime of the last key press.
+    private var lastKeyPress: TimeInterval = 0
+
+    /// Hands resting by the trackpad while typing can tap it, so gestures within a second of a key press are ignored.
+    private var isTyping: Bool { ProcessInfo.processInfo.systemUptime - lastKeyPress < 1 }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         statusItem.button?.image = NSImage(systemSymbolName: "hand.tap", accessibilityDescription: "Trackpad Gestures")
@@ -15,8 +20,13 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
         statusItem.menu = menu
 
         Trackpads.onGesture = { [weak self] gesture in
-            guard let self, !self.isPaused else { return }
+            guard let self, !self.isPaused, !self.isTyping else { return }
             SystemActions.perform(gesture)
+        }
+        NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { [weak self] _ in
+            MainActor.assumeIsolated {
+                self?.lastKeyPress = ProcessInfo.processInfo.systemUptime
+            }
         }
         AXIsProcessTrustedWithOptions(["AXTrustedCheckOptionPrompt": true] as CFDictionary)
         trackpads.restart()

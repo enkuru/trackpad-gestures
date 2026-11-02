@@ -1,3 +1,4 @@
+import Foundation
 import GestureCore
 import Testing
 
@@ -17,8 +18,13 @@ private struct Finger {
 }
 
 /// Replays the fingers as 100 Hz frames, ending with the empty frame the trackpad sends when the last finger lifts.
-private func gestures(for fingers: [Finger], tuning: GestureTuning = GestureTuning()) -> [Gesture] {
-    var recognizer = GestureRecognizer(tuning: tuning)
+/// The default trackpad is 100 mm square, so 0.1 is 10 mm.
+private func gestures(
+    for fingers: [Finger],
+    on trackpadSize: CGSize = CGSize(width: 100, height: 100),
+    tuning: GestureTuning = GestureTuning()
+) -> [Gesture] {
+    var recognizer = GestureRecognizer(trackpadSize: trackpadSize, tuning: tuning)
     let lastFrame = Int((fingers.map(\.up).max() ?? 0) * 100) + 1
 
     return (0...lastFrame).compactMap { frame in
@@ -74,6 +80,25 @@ func tapBesideARestingFingerIsATipTapOnThatSide(tapX: Double, expected: Gesture)
     #expect(gestures(for: fingers) == [expected])
 }
 
+@Test(arguments: [0.05, 0.95])
+func tapFarFromTheRestingFingerIsIgnored(tapX: Double) {
+    let fingers = [
+        Finger(id: 1, down: 0.00, up: 1.00, from: (0.50, 0.5)),
+        Finger(id: 2, down: 0.40, up: 0.50, from: (tapX, 0.5)),
+    ]
+
+    #expect(gestures(for: fingers).isEmpty)
+}
+
+@Test func sameTapIsWithinReachOnASmallerTrackpad() {
+    let fingers = [
+        Finger(id: 1, down: 0.00, up: 1.00, from: (0.50, 0.5)),
+        Finger(id: 2, down: 0.40, up: 0.50, from: (0.95, 0.5)),
+    ]
+
+    #expect(gestures(for: fingers, on: CGSize(width: 80, height: 50)) == [.tipTapRight])
+}
+
 @Test func everyTapWhileTheFingerRestsCounts() {
     let taps = [0.30, 0.50, 0.70].enumerated().map { index, down in
         Finger(id: 10 + index, down: down, up: down + 0.08, from: (0.70, 0.5))
@@ -126,7 +151,17 @@ func tapBesideARestingFingerIsATipTapOnThatSide(tapX: Double, expected: Gesture)
     let fingers = [
         Finger(id: 1, down: 0.00, up: 1.00, from: (0.30, 0.5)),
         Finger(id: 2, down: 0.01, up: 1.00, from: (0.50, 0.5)),
-        Finger(id: 3, down: 0.40, up: 0.50, from: (0.80, 0.5)),
+        Finger(id: 3, down: 0.40, up: 0.50, from: (0.60, 0.5)),
+    ]
+
+    #expect(gestures(for: fingers).isEmpty)
+}
+
+@Test func tapBetweenRestingFingersFarApartIsIgnored() {
+    let fingers = [
+        Finger(id: 1, down: 0.00, up: 1.00, from: (0.05, 0.5)),
+        Finger(id: 2, down: 0.01, up: 1.00, from: (0.95, 0.5)),
+        Finger(id: 3, down: 0.40, up: 0.50, from: (0.50, 0.5)),
     ]
 
     #expect(gestures(for: fingers).isEmpty)

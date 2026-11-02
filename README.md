@@ -9,7 +9,9 @@ A small menu bar app that adds these trackpad gestures:
 | Rest one finger, tap another to its right | Volume up |
 | Rest two fingers, tap a third between them | Mute / unmute |
 
-The resting fingers must already be down for about a tenth of a second before the tap, so ordinary two- and three-finger taps don't trigger the volume gestures.
+The resting fingers must already be down for about a tenth of a second before the tap, so ordinary two- and three-finger taps don't trigger the volume gestures. The tap must also land within 4 cm of each resting finger, so a tap out near the edge doesn't count.
+
+All gestures are ignored for a second after you press a key, so a hand brushing the trackpad while you type doesn't change the volume.
 
 Works on macOS 14 or later, on Apple silicon and Intel Macs, with the built-in trackpad or a Magic Trackpad. A Magic Mouse is ignored.
 
